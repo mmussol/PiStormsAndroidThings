@@ -11,7 +11,6 @@ import java.util.List;
 
 public class PiStorms implements Constants {
 
-    private static final String TAG = PiStorms.class.getSimpleName();
     private static PiStorms mPiStorms;
     PeripheralManagerService mManager;
     private Bank mBankA, mBankB;
@@ -41,7 +40,7 @@ public class PiStorms implements Constants {
                        synchronized (this) {
                            byte count = mBankA.readByte(PS_KEY1_COUNT);
                            if (count > mKeyPressCount) {
-                               Log.d(TAG, "GO button count: " + count);
+                               Log.d(PS_TAG, "GO button count: " + count);
                                if (mRunning) {
                                    stop();
                                } else {
@@ -57,7 +56,7 @@ public class PiStorms implements Constants {
                        Thread.sleep(500);
                    }
                } catch (Exception e) {
-                   Log.e(TAG, "Go button thread exception: ", e);
+                   Log.e(PS_TAG, "Go button thread exception: ", e);
                }
            }
         });
@@ -99,28 +98,51 @@ public class PiStorms implements Constants {
     public void addI2CSensor(Sensor sensor, PS_Port port, int i2cAddr)
             throws IOException, InterruptedException {
 
+        I2cDevice i2cDevice = mManager.openI2cDevice(I2C_DEVICE_NAME, i2cAddr >> 1);;
+        byte[] buffer = new byte[8];
+
         switch (port) {
             case BAS1:
                 mBankA.writeByte(PS_SENSOR_MODE_1, (byte) PS_SENSOR_TYPE_I2C);
-                mI2cSensors[0] = mManager.openI2cDevice(I2C_DEVICE_NAME, i2cAddr >> 1);
+                mI2cSensors[0] = i2cDevice;
                 mSensors[0] = sensor;
                 break;
             case BAS2:
                 mBankA.writeByte(PS_SENSOR_MODE_2, (byte) PS_SENSOR_TYPE_I2C);
-                mI2cSensors[1] = mManager.openI2cDevice(I2C_DEVICE_NAME, i2cAddr >> 1);
+                mI2cSensors[1] = i2cDevice;
                 mSensors[1] = sensor;
                 break;
             case BBS1:
                 mBankB.writeByte(PS_SENSOR_MODE_1, (byte) PS_SENSOR_TYPE_I2C);
-                mI2cSensors[2] = mManager.openI2cDevice(I2C_DEVICE_NAME, i2cAddr >> 1);
+                mI2cSensors[2] = i2cDevice;
                 mSensors[2] = sensor;
                 break;
             case BBS2:
                 mBankB.writeByte(PS_SENSOR_MODE_2, (byte) PS_SENSOR_TYPE_I2C);
-                mI2cSensors[3] = mManager.openI2cDevice(I2C_DEVICE_NAME, i2cAddr >> 1);
+                mI2cSensors[3] = i2cDevice;
                 mSensors[3] = sensor;
                 break;
         }
+
+        i2cDevice.readRegBuffer(0x0, buffer, buffer.length);
+        String vendorName = new String(buffer);
+
+        i2cDevice.readRegBuffer(0x8, buffer, buffer.length);
+        String deviceId = new String(buffer);
+
+        i2cDevice.readRegBuffer(0x10, buffer, buffer.length);
+        String firmwareVersion = new String(buffer);
+
+        StringBuilder builder = new StringBuilder().
+                append("    I2C Device Addr: ").append(i2cAddr).
+                append("\n    Vendor: ").append(vendorName).
+                append("\n    Device ID: ").append(deviceId).
+                append("\n    Firmware Version: ").append(firmwareVersion).
+                append('\n');
+
+        Log.i(PS_TAG, "Added I2C device on port " + port);
+        Log.i(PS_TAG, builder.toString());
+
     }
 
     synchronized public void setLed(PS_Led led, int red, int green, int blue)
@@ -308,7 +330,7 @@ public class PiStorms implements Constants {
                     mSensors[3] = null;
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Got exception during stop: ", e);
+                Log.e(PS_TAG, "Got exception during stop: ", e);
             }
         }
     }
@@ -334,7 +356,7 @@ public class PiStorms implements Constants {
                     append("\nDevice ID: ").append(getDeviceId()).
                     append("\nFirmware Version: ").append(getFirmwareVersion()).
                     append('\n');
-            Log.i(TAG, builder.toString());
+            Log.i(PS_TAG, builder.toString());
         }
 
         String getFirmwareVersion() throws IOException {

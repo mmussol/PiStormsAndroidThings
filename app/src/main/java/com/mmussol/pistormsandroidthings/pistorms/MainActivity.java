@@ -9,7 +9,6 @@ import com.mmussol.pistormsandroidthings.programs.Demo;
 
 public class MainActivity extends Activity implements Constants, PiStormsListener {
 
-    private static final String TAG = MainActivity.class.getSimpleName();
     private Thread mDemo;
 
     @Override
@@ -20,7 +19,7 @@ public class MainActivity extends Activity implements Constants, PiStormsListene
             PiStorms piStorms = PiStorms.getPiStorms();
             piStorms.addListener(this);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to create PiStorms");
+            Log.e(PS_TAG, "Failed to create PiStorms");
         }
     }
 

@@ -5,7 +5,6 @@ import java.io.IOException;
 
 public class PspController extends Sensor implements Constants {
 
-    private static final String TAG = PspController.class.getSimpleName();
     private static PiStorms mPiStorms;
     private static PS_Port mPort;
 
@@ -26,35 +25,14 @@ public class PspController extends Sensor implements Constants {
         mPort = port;
 
         int i2cAddr = PSP_CTRL_I2C_ADDR;
-        mPiStorms.addI2CSensor(this, mPort, i2cAddr);
-
-        mPiStorms.writeByte(mPort, PSP_CTRL_MODE, (byte) PSP_CTRL_COMMAND_I);
-
-        StringBuilder builder = new StringBuilder().
-                append("I2C Device Addr: ").append(i2cAddr).
-                append("\nVendor: ").append(getVendorName()).
-                append("\nDevice ID: ").append(getDeviceId()).
-                append("\nFirmware Version: ").append(getFirmwareVersion()).
-                append('\n');
-        Log.i(TAG, builder.toString());
-    }
-
-    private String getFirmwareVersion() throws IOException, InterruptedException {
-        byte[] buffer = new byte[8];
-        mPiStorms.readBuffer(mPort, 0x0, buffer, buffer.length);
-        return (new String(buffer));
-    }
-
-    private String getVendorName() throws IOException, InterruptedException {
-        byte[] buffer = new byte[8];
-        mPiStorms.readBuffer(mPort, 0x8, buffer, buffer.length);
-        return (new String(buffer));
-    }
-
-    private String getDeviceId() throws IOException, InterruptedException {
-        byte[] buffer = new byte[8];
-        mPiStorms.readBuffer(mPort, 0x10, buffer, buffer.length);
-        return (new String(buffer));
+        try {
+            mPiStorms.addI2CSensor(this, mPort, i2cAddr);
+            mPiStorms.writeByte(mPort, PSP_CTRL_MODE, (byte) PSP_CTRL_COMMAND_I);
+        } catch (IOException e) {
+            String error = "Could not communicate with PspController I2C device: " + port;
+            Log.e(PS_TAG, error);
+            throw new IOException(error);
+        }
     }
 
     public void getButtons(PspControllerButtons b) throws IOException, InterruptedException {

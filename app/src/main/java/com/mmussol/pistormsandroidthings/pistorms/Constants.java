@@ -2,18 +2,32 @@ package com.mmussol.pistormsandroidthings.pistorms;
 
 public interface Constants {
 
+    // Tag for Android logging, use "adb logcat -s PiStorms:v"
+    static final String PS_TAG = "PiStorms";
+
     enum PS_Port {
         // Motor ports
-        BAM1,
-        BAM2,
-        BBM1,
-        BBM2,
+        BAM1("BAM1"),
+        BAM2("BAM2"),
+        BBM1("BBM1"),
+        BBM2("BBM2"),
 
         // Sensor ports
-        BAS1,
-        BAS2,
-        BBS1,
-        BBS2
+        BAS1("BAS1"),
+        BAS2("BAS2"),
+        BBS1("BBS1"),
+        BBS2("BBS2");
+
+        private final String name;
+
+        private PS_Port(String nameVal) {
+            this.name = nameVal;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 
     enum PS_Led {

@@ -9,7 +9,6 @@ import com.mmussol.pistormsandroidthings.pistorms.PspController;
 import com.mmussol.pistormsandroidthings.pistorms.PspControllerButtons;
 
 public class Demo extends Thread implements Constants {
-    private static final String TAG = Demo.class.getSimpleName();
 
     @Override
     public void run() {
@@ -50,7 +49,7 @@ public class Demo extends Thread implements Constants {
                 Thread.sleep(200);
             }
         } catch (Exception e) {
-            Log.e(TAG, "Got Exception: ", e);
+            Log.e(PS_TAG, "Got Exception: ", e);
         }
     }
 }

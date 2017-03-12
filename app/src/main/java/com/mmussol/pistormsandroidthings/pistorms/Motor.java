@@ -4,7 +4,6 @@ import java.io.IOException;
 
 public class Motor implements Constants {
 
-    private static final String TAG = Motor.class.getSimpleName();
     private PiStorms mPiStorms;
     private PS_Port mPort;
 
