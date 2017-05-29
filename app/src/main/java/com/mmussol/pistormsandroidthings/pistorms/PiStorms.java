@@ -1,9 +1,13 @@
 package com.mmussol.pistormsandroidthings.pistorms;
 
+import android.graphics.Color;
 import android.util.Log;
 
 import com.google.android.things.pio.I2cDevice;
 import com.google.android.things.pio.PeripheralManagerService;
+import com.mmussol.pistormsandroidthings.pistorms.display.ImageRotation;
+import com.mmussol.pistormsandroidthings.pistorms.display.PiStormsDisplay;
+import com.mmussol.pistormsandroidthings.pistorms.display.PiStormsDisplayBuilder;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -14,6 +18,7 @@ public class PiStorms implements Constants {
     private static PiStorms mPiStorms;
     PeripheralManagerService mManager;
     private Bank mBankA, mBankB;
+    protected final PiStormsDisplay mPiStormsDisplay;
     private Motor[] mMotors = new Motor[4];
     private Sensor[] mSensors = new Sensor[4];
     private I2cDevice[] mI2cSensors = new I2cDevice[4];
@@ -27,8 +32,14 @@ public class PiStorms implements Constants {
     // Private constructor for singleton
     private PiStorms() throws IOException {
         mManager = new PeripheralManagerService();
-        mBankA = new Bank(mManager, PS_A_ADDRESS);
-        mBankB = new Bank(mManager, PS_B_ADDRESS);
+
+        I2cDevice devA = mManager.openI2cDevice(PiStorms.I2C_DEVICE_NAME, PS_A_ADDRESS >> 1);
+        mBankA = new Bank(mManager, PS_A_ADDRESS, devA);
+
+        I2cDevice devB = mManager.openI2cDevice(PiStorms.I2C_DEVICE_NAME, PS_B_ADDRESS >> 1);
+        mBankB = new Bank(mManager, PS_B_ADDRESS, devB);
+
+        mPiStormsDisplay = PiStormsDisplayBuilder.newBuilder().setImageRotation(ImageRotation.NONE).build(devA);
 
         // Poll button count in background thread
         Thread goButtonThread = new Thread(new Runnable() {
@@ -346,9 +357,9 @@ public class PiStorms implements Constants {
         I2cDevice mI2cDevice;
         int mI2cAddr;
 
-        Bank(PeripheralManagerService manager, int i2cAddr) throws IOException {
+        Bank(PeripheralManagerService manager, int i2cAddr, I2cDevice i2cDev) throws IOException {
             mI2cAddr = i2cAddr;
-            mI2cDevice = manager.openI2cDevice(PiStorms.I2C_DEVICE_NAME, i2cAddr >> 1);
+            mI2cDevice = i2cDev;
 
             StringBuilder builder = new StringBuilder().
                     append("I2C Device Addr: ").append(i2cAddr).
