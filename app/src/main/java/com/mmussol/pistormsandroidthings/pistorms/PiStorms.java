@@ -1,13 +1,9 @@
 package com.mmussol.pistormsandroidthings.pistorms;
 
-import android.graphics.Color;
 import android.util.Log;
 
 import com.google.android.things.pio.I2cDevice;
 import com.google.android.things.pio.PeripheralManagerService;
-import com.mmussol.pistormsandroidthings.pistorms.display.ImageRotation;
-import com.mmussol.pistormsandroidthings.pistorms.display.PiStormsDisplay;
-import com.mmussol.pistormsandroidthings.pistorms.display.PiStormsDisplayBuilder;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -39,7 +35,7 @@ public class PiStorms implements Constants {
         I2cDevice devB = mManager.openI2cDevice(PiStorms.I2C_DEVICE_NAME, PS_B_ADDRESS >> 1);
         mBankB = new Bank(mManager, PS_B_ADDRESS, devB);
 
-        mPiStormsDisplay = PiStormsDisplayBuilder.newBuilder().setImageRotation(ImageRotation.NONE).build(devA);
+        mPiStormsDisplay = new PiStormsDisplay(mManager, devA);
 
         // Poll button count in background thread
         Thread goButtonThread = new Thread(new Runnable() {
