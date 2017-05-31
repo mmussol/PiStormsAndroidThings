@@ -93,4 +93,8 @@ public interface Constants {
     static final int PS_SENSOR_TYPE_COLOR_NONE = 17;
     static final int PS_SENSOR_TYPE_EV3_SWITCH = 18;
     static final int PS_SENSOR_TYPE_EV3 = 19;
+
+    // Display Sizes
+    public final static int PS_TFT_WIDTH    = 320;
+    public final static int PS_TFT_HEIGHT   = 240;
 }

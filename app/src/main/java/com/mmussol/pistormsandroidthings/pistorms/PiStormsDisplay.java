@@ -1,8 +1,13 @@
 package com.mmussol.pistormsandroidthings.pistorms;
 
+import android.app.Presentation;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.util.Log;
+import android.view.PixelCopy;
+import android.view.SurfaceView;
 
 import com.google.android.things.pio.Gpio;
 import com.google.android.things.pio.I2cDevice;
@@ -13,16 +18,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-import static com.mmussol.pistormsandroidthings.pistorms.Constants.PS_TAG;
-
 /**
  * This is an AndroidThings port of the following (MANY THANKS TO author sdaubin)
  * https://github.com/saxond/ILI9341Java
  */
-public class PiStormsDisplay {
-
-    public final static int ILI9341_TFTWIDTH    = 320;
-    public final static int ILI9341_TFTHEIGHT   = 240;
+public class PiStormsDisplay implements Constants {
 
     private final static byte ILI9341_NOP         = 0x00;
     private final static byte ILI9341_SWRESET     = 0x01;
@@ -99,6 +99,9 @@ public class PiStormsDisplay {
     private final static boolean STATE_DATA = true;
     private final static boolean STATE_COMMAND = false;
 
+    private static final int PIXELCOPY_REQUEST_SLEEP_MS = 100;
+    private static final int PIXELCOPY_TIMEOUT_MS = 1000;
+
     private final int SPI_MAX_SUPPORTED_BYTES = 4096;
 
     private final I2cDevice mI2cDevice; // i2c device for reading touch screen inputs
@@ -110,8 +113,11 @@ public class PiStormsDisplay {
 
     // Allocate byte buffer for pixels (2 bytes per pixel)
     // Used to copy pixes from mFrameBitmap into byte array to send to SPI interface
-    private ByteBuffer mFrameBuffer = ByteBuffer.allocateDirect((ILI9341_TFTWIDTH * ILI9341_TFTHEIGHT * 2));
+    private ByteBuffer mFrameBuffer = ByteBuffer.allocateDirect((PS_TFT_WIDTH * PS_TFT_HEIGHT * 2));
     private byte[] mFrameBounceBuffer = new byte[SPI_MAX_SUPPORTED_BYTES];
+
+    SurfaceView mSurfaceView;
+    Presentation mPresentation;
 
     // Private constructor for singleton
     protected PiStormsDisplay(PeripheralManagerService manager, I2cDevice i2cDevice) throws IOException {
@@ -145,14 +151,51 @@ public class PiStormsDisplay {
         mResetPin.setActiveType(Gpio.ACTIVE_HIGH);
         mResetPin.setDirection(Gpio.DIRECTION_OUT_INITIALLY_HIGH);
 
-        mFrameBitmap = Bitmap.createBitmap(ILI9341_TFTWIDTH, ILI9341_TFTHEIGHT, Bitmap.Config.RGB_565);
+        mFrameBitmap = Bitmap.createBitmap(PS_TFT_WIDTH, PS_TFT_HEIGHT, Bitmap.Config.RGB_565);
         resetDisplay();
         clear(Color.GREEN);
         display();
+
+        // Refresh display on background thread.
+        Thread displayThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                int copyResult;
+                SynchronousPixelCopy copyHelper = new SynchronousPixelCopy();
+                try {
+                    while (true) {
+                        synchronized (this) {
+                            if (mSurfaceView != null) {
+                                copyResult = copyHelper.request(mSurfaceView, mFrameBitmap);
+                                if (copyResult != PixelCopy.SUCCESS) {
+                                    Log.e(PS_TAG, "Surface copy error " + copyResult);
+                                }
+                            }
+                        }
+                        display();
+                        Thread.sleep(PIXELCOPY_REQUEST_SLEEP_MS);
+                    }
+                } catch (Exception e) {
+                    Log.e(PS_TAG, "Display thread exception: ", e);
+                }
+                copyHelper.release();
+            }
+        });
+        displayThread.start();
     }
 
     protected void clear(int color) {
         mFrameBitmap.eraseColor(color);
+    }
+
+    protected synchronized void setDisplay(SurfaceView surfaceView, Presentation presentation) {
+        mSurfaceView = surfaceView;
+        mPresentation = presentation;
+    }
+
+    protected synchronized void clearDisplay() {
+        mSurfaceView = null;
+        mPresentation = null;
     }
 
     private void display() throws IOException {
@@ -160,10 +203,10 @@ public class PiStormsDisplay {
         // Set address bounds to entire display.
         command(ILI9341_CASET);     // Column addr set
         sendShort(STATE_DATA, 0);   // x start
-        sendShort(STATE_DATA, (ILI9341_TFTWIDTH - 1)); // x end
+        sendShort(STATE_DATA, (PS_TFT_WIDTH - 1)); // x end
         command(ILI9341_PASET);     // Row addr set
         sendShort(STATE_DATA, 0);   // y start
-        sendShort(STATE_DATA, (ILI9341_TFTHEIGHT - 1)); // y end
+        sendShort(STATE_DATA, (PS_TFT_HEIGHT - 1)); // y end
         command(ILI9341_RAMWR);     // write to RAM
 
         // Set DC for data.
@@ -325,4 +368,43 @@ public class PiStormsDisplay {
             throw new IOException("Write request too large > " + SPI_MAX_SUPPORTED_BYTES);
         }
     }
+
+    private static class SynchronousPixelCopy implements PixelCopy.OnPixelCopyFinishedListener {
+        private final Handler handler;
+        private final HandlerThread thread;
+        private int status = -1;
+        public SynchronousPixelCopy() {
+            this.thread = new HandlerThread("PixelCopyHelper");
+            thread.start();
+            this.handler = new Handler(thread.getLooper());
+        }
+        public void release() {
+            thread.quit();
+        }
+        public int request(SurfaceView source, Bitmap dest) {
+            synchronized (this) {
+                try {
+                    PixelCopy.request(source, dest, this, handler);
+                    return getResultLocked();
+                } catch (Exception e) {
+                    Log.e(PS_TAG, "Exception occurred when copying a SurfaceView.", e);
+                    return -1;
+                }
+            }
+        }
+        private int getResultLocked() {
+            try {
+                this.wait(PIXELCOPY_TIMEOUT_MS);
+            } catch (InterruptedException e) { /* PixelCopy request didn't complete within 1s */ }
+            return status;
+        }
+        @Override
+        public void onPixelCopyFinished(int copyResult) {
+            synchronized (this) {
+                status = copyResult;
+                this.notify();
+            }
+        }
+    }
+
 }

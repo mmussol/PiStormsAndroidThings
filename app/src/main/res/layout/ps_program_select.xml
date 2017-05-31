@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <Button
+        android:id="@+id/test_button_1"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="TEST BUTTON 1"
+        android:textSize="100sp"
+        android:layout_weight="1"/>
+
+    <Button
+        android:id="@+id/test_button_2"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="TEST BUTTON 2"
+        android:textSize="100sp"
+        android:layout_weight="1"/>
+</LinearLayout>

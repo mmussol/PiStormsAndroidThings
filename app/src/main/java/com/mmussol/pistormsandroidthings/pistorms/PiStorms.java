@@ -1,6 +1,10 @@
 package com.mmussol.pistormsandroidthings.pistorms;
 
+import android.app.Presentation;
+import android.content.Context;
 import android.util.Log;
+import android.view.Display;
+import android.view.SurfaceView;
 
 import com.google.android.things.pio.I2cDevice;
 import com.google.android.things.pio.PeripheralManagerService;
@@ -15,6 +19,8 @@ public class PiStorms implements Constants {
     PeripheralManagerService mManager;
     private Bank mBankA, mBankB;
     protected final PiStormsDisplay mPiStormsDisplay;
+    private Context mActivityContext;
+    private Presentation mPresentation;
     private Motor[] mMotors = new Motor[4];
     private Sensor[] mSensors = new Sensor[4];
     private I2cDevice[] mI2cSensors = new I2cDevice[4];
@@ -83,6 +89,19 @@ public class PiStorms implements Constants {
 
     public void removeListener(PiStormsListener listener) {
         listeners.remove(listener);
+    }
+
+    public void addDisplay(Context context, SurfaceView surfaceView, Display display) {
+        mActivityContext = context;
+        mPresentation = new ScreenProgramSelect(mActivityContext, display);
+        mPresentation.show();
+        mPiStormsDisplay.setDisplay(surfaceView, mPresentation);
+    }
+
+    public void removeDisplay() {
+        mPiStormsDisplay.clearDisplay();
+        mPresentation = null;
+        mActivityContext = null;
     }
 
     public void addMotor(Motor motor, PS_Port port) {
