@@ -95,6 +95,11 @@ public interface Constants {
     static final int PS_SENSOR_TYPE_EV3 = 19;
 
     // Display Sizes
-    public final static int PS_TFT_WIDTH    = 320;
-    public final static int PS_TFT_HEIGHT   = 240;
+    static final int PS_TFT_WIDTH    = 320;
+    static final int PS_TFT_HEIGHT   = 240;
+
+    // Touch screen Y-axis Register
+    static final int PS_TSY = 0xE3;
+    // Touch screen X-axis Register
+    static final int PS_TSX = 0xE5;
 }

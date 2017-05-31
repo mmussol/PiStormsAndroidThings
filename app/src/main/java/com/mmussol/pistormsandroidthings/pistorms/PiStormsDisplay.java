@@ -5,7 +5,9 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.SystemClock;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.PixelCopy;
 import android.view.SurfaceView;
 
@@ -99,28 +101,29 @@ public class PiStormsDisplay implements Constants {
     private final static boolean STATE_DATA = true;
     private final static boolean STATE_COMMAND = false;
 
-    private static final int PIXELCOPY_REQUEST_SLEEP_MS = 100;
+    private static final int DISPLAY_REFRESH_MS = 100;
     private static final int PIXELCOPY_TIMEOUT_MS = 1000;
 
     private final int SPI_MAX_SUPPORTED_BYTES = 4096;
 
     private final I2cDevice mI2cDevice; // i2c device for reading touch screen inputs
     private final SpiDevice mSpiDevice;
-    private final Gpio mDcPin; // data/control GPIO pin
+    private final Gpio mDcPin; // data-control GPIO pin
     private final Gpio mResetPin; // reset GPIO pin
 
-    private final Bitmap mFrameBitmap;
+    private final Bitmap mFrameBitmap; // Bitmap of display contents
 
     // Allocate byte buffer for pixels (2 bytes per pixel)
     // Used to copy pixes from mFrameBitmap into byte array to send to SPI interface
     private ByteBuffer mFrameBuffer = ByteBuffer.allocateDirect((PS_TFT_WIDTH * PS_TFT_HEIGHT * 2));
     private byte[] mFrameBounceBuffer = new byte[SPI_MAX_SUPPORTED_BYTES];
 
-    SurfaceView mSurfaceView;
-    Presentation mPresentation;
+    private SurfaceView mSurfaceView;
+    private Presentation mPresentation;
 
     // Private constructor for singleton
     protected PiStormsDisplay(PeripheralManagerService manager, I2cDevice i2cDevice) throws IOException {
+
         mI2cDevice = i2cDevice;
 
         List<String> deviceList = manager.getSpiBusList();
@@ -160,11 +163,30 @@ public class PiStormsDisplay implements Constants {
         Thread displayThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                int copyResult;
+                int copyResult, x, y, lastX, lastY;
+                MotionEvent motionEvent;
                 SynchronousPixelCopy copyHelper = new SynchronousPixelCopy();
                 try {
+                    lastX = mI2cDevice.readRegWord(PS_TSX);
+                    lastY = mI2cDevice.readRegWord(PS_TSY);
+
                     while (true) {
+                        x = mI2cDevice.readRegWord(PS_TSX);
+                        y = mI2cDevice.readRegWord(PS_TSY);
+
                         synchronized (this) {
+                            if (mPresentation != null) {
+                                if (x != lastX || y != lastY) {
+                                    // Generate touch event (DOWN followed by UP event)
+                                    motionEvent = MotionEvent.obtain(SystemClock.uptimeMillis(),
+                                            SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, x, y, 0);
+                                    mPresentation.dispatchTouchEvent(motionEvent);
+
+                                    motionEvent = MotionEvent.obtain(SystemClock.uptimeMillis(),
+                                            SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, 0);
+                                    mPresentation.dispatchTouchEvent(motionEvent);
+                                }
+                            }
                             if (mSurfaceView != null) {
                                 copyResult = copyHelper.request(mSurfaceView, mFrameBitmap);
                                 if (copyResult != PixelCopy.SUCCESS) {
@@ -173,7 +195,10 @@ public class PiStormsDisplay implements Constants {
                             }
                         }
                         display();
-                        Thread.sleep(PIXELCOPY_REQUEST_SLEEP_MS);
+
+                        lastX = x;
+                        lastY = y;
+                        Thread.sleep(DISPLAY_REFRESH_MS);
                     }
                 } catch (Exception e) {
                     Log.e(PS_TAG, "Display thread exception: ", e);
@@ -406,5 +431,4 @@ public class PiStormsDisplay implements Constants {
             }
         }
     }
-
 }
