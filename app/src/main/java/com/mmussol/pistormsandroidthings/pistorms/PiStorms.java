@@ -4,6 +4,7 @@ import android.app.Presentation;
 import android.content.Context;
 import android.util.Log;
 import android.view.Display;
+import android.view.Surface;
 import android.view.SurfaceView;
 
 import com.google.android.things.pio.I2cDevice;
@@ -91,11 +92,11 @@ public class PiStorms implements Constants {
         listeners.remove(listener);
     }
 
-    public void addDisplay(Context context, SurfaceView surfaceView, Display display) {
+    public void addDisplay(Context context, Surface surface, Display display) {
         mActivityContext = context;
         mPresentation = new ScreenProgramSelect(mActivityContext, display);
         mPresentation.show();
-        mPiStormsDisplay.setDisplay(surfaceView, mPresentation);
+        mPiStormsDisplay.setDisplay(surface, mPresentation);
     }
 
     public void removeDisplay() {

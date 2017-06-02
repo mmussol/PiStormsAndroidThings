@@ -9,7 +9,7 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.PixelCopy;
-import android.view.SurfaceView;
+import android.view.Surface;
 
 import com.google.android.things.pio.Gpio;
 import com.google.android.things.pio.I2cDevice;
@@ -112,13 +112,11 @@ public class PiStormsDisplay implements Constants {
     private final Gpio mResetPin; // reset GPIO pin
 
     private final Bitmap mFrameBitmap; // Bitmap of display contents
-
-    // Allocate byte buffer for pixels (2 bytes per pixel)
-    // Used to copy pixes from mFrameBitmap into byte array to send to SPI interface
-    private ByteBuffer mFrameBuffer = ByteBuffer.allocateDirect((PS_TFT_WIDTH * PS_TFT_HEIGHT * 2));
+    private ByteBuffer mFrameBuffer;
     private byte[] mFrameBounceBuffer = new byte[SPI_MAX_SUPPORTED_BYTES];
+    private byte[] mFrameSwapBuffer = new byte[SPI_MAX_SUPPORTED_BYTES];
 
-    private SurfaceView mSurfaceView;
+    private Surface mSurface;
     private Presentation mPresentation;
 
     // Private constructor for singleton
@@ -155,8 +153,10 @@ public class PiStormsDisplay implements Constants {
         mResetPin.setDirection(Gpio.DIRECTION_OUT_INITIALLY_HIGH);
 
         mFrameBitmap = Bitmap.createBitmap(PS_TFT_WIDTH, PS_TFT_HEIGHT, Bitmap.Config.RGB_565);
+        byte[] pixels = new byte[mFrameBitmap.getByteCount()];
+        mFrameBuffer = ByteBuffer.wrap(pixels);
         resetDisplay();
-        clear(Color.GREEN);
+        clear(Color.BLUE);
         display();
 
         // Refresh display on background thread.
@@ -187,8 +187,8 @@ public class PiStormsDisplay implements Constants {
                                     mPresentation.dispatchTouchEvent(motionEvent);
                                 }
                             }
-                            if (mSurfaceView != null) {
-                                copyResult = copyHelper.request(mSurfaceView, mFrameBitmap);
+                            if (mSurface != null) {
+                                copyResult = copyHelper.request(mSurface, mFrameBitmap);
                                 if (copyResult != PixelCopy.SUCCESS) {
                                     Log.e(PS_TAG, "Surface copy error " + copyResult);
                                 }
@@ -213,13 +213,16 @@ public class PiStormsDisplay implements Constants {
         mFrameBitmap.eraseColor(color);
     }
 
-    protected synchronized void setDisplay(SurfaceView surfaceView, Presentation presentation) {
-        mSurfaceView = surfaceView;
+    protected synchronized void setDisplay(Surface surface, Presentation presentation) {
+        // TODO : Android Things doesn't have OPENGL yet, causing the PixelCopy.request
+        // call to fail and crash. Add this back when OPENGL is supported. For now,
+        // we don't have a way to render the pixels in the Surface (can't copy pixles to bitmap)
+        //mSurface = surface;
         mPresentation = presentation;
     }
 
     protected synchronized void clearDisplay() {
-        mSurfaceView = null;
+        mSurface = null;
         mPresentation = null;
     }
 
@@ -238,6 +241,7 @@ public class PiStormsDisplay implements Constants {
         mDcPin.setValue(STATE_DATA);
 
         // Copy bitmap pixels to ByteBuffer
+        mFrameBuffer.position(0);
         mFrameBitmap.copyPixelsToBuffer(mFrameBuffer);
 
         // Write data out to spi interface (use 4k bounce buffer)
@@ -245,7 +249,12 @@ public class PiStormsDisplay implements Constants {
         while (mFrameBuffer.remaining() > 0) {
             int len = Math.min(SPI_MAX_SUPPORTED_BYTES, mFrameBuffer.remaining());
             mFrameBuffer.get(mFrameBounceBuffer, 0, len);
-            mSpiDevice.write(mFrameBounceBuffer, mFrameBounceBuffer.length);
+            // swap MSB and LSB bytes
+            for (int i = 0; i < len; i += 2) {
+                mFrameSwapBuffer[i] = mFrameBounceBuffer[i+1];
+                mFrameSwapBuffer[i+1] = mFrameBounceBuffer[i];
+            }
+            mSpiDevice.write(mFrameSwapBuffer, len);
         }
     }
 
@@ -355,7 +364,7 @@ public class PiStormsDisplay implements Constants {
         sleep(120);
         command(ILI9341_DISPON);    // Display on
 
-        command(ILI9341_MADCTL);    // Set Rotation to NONE
+        command(ILI9341_MADCTL);    // Set Rotation
         data(MADCTL_MX | MADCTL_BGR);
     }
 
@@ -406,7 +415,7 @@ public class PiStormsDisplay implements Constants {
         public void release() {
             thread.quit();
         }
-        public int request(SurfaceView source, Bitmap dest) {
+        public int request(Surface source, Bitmap dest) {
             synchronized (this) {
                 try {
                     PixelCopy.request(source, dest, this, handler);

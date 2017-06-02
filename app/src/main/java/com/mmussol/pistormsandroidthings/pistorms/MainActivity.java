@@ -16,14 +16,14 @@ public class MainActivity extends Activity implements Constants, PiStormsListene
 
     private PiStorms mPiStorms;
     private Thread mDemo;
-    SurfaceView mSurfaceView;
+    private VirtualDisplay mVirtualDisplay;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mSurfaceView = (SurfaceView) findViewById(R.id.pistorms_surface_view);
-        SurfaceHolder surfaceHolder = mSurfaceView.getHolder();
+        SurfaceView surfaceView = (SurfaceView) findViewById(R.id.pistorms_surface_view);
+        SurfaceHolder surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(MainActivity.this);
         try {
             mPiStorms = PiStorms.getPiStorms();
@@ -47,10 +47,10 @@ public class MainActivity extends Activity implements Constants, PiStormsListene
     public void surfaceCreated(SurfaceHolder surfaceHolder) {
         DisplayManager dm = (DisplayManager) getSystemService(DISPLAY_SERVICE);
         int densityDpi = 30;
-        VirtualDisplay virtualDisplay = dm.createVirtualDisplay("test", PS_TFT_WIDTH, PS_TFT_HEIGHT, densityDpi,
+        mVirtualDisplay = dm.createVirtualDisplay("test", PS_TFT_WIDTH, PS_TFT_HEIGHT, densityDpi,
                 surfaceHolder.getSurface(), DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION);
-        Display display = virtualDisplay.getDisplay();
-        mPiStorms.addDisplay(MainActivity.this, mSurfaceView, display);
+        Display display = mVirtualDisplay.getDisplay();
+        mPiStorms.addDisplay(MainActivity.this, surfaceHolder.getSurface(), display);
     }
 
     @Override
