@@ -214,10 +214,7 @@ public class PiStormsDisplay implements Constants {
     }
 
     protected synchronized void setDisplay(Surface surface, Presentation presentation) {
-        // TODO : Android Things doesn't have OPENGL yet, causing the PixelCopy.request
-        // call to fail and crash. Add this back when OPENGL is supported. For now,
-        // we don't have a way to render the pixels in the Surface (can't copy pixles to bitmap)
-        //mSurface = surface;
+        mSurface = surface;
         mPresentation = presentation;
     }
 
