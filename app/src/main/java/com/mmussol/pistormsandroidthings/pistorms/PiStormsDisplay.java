@@ -112,9 +112,9 @@ public class PiStormsDisplay implements Constants {
     private final Gpio mResetPin; // reset GPIO pin
 
     private final Bitmap mFrameBitmap; // Bitmap of display contents
+    private byte[] mPixels;
     private ByteBuffer mFrameBuffer;
     private byte[] mFrameBounceBuffer = new byte[SPI_MAX_SUPPORTED_BYTES];
-    private byte[] mFrameSwapBuffer = new byte[SPI_MAX_SUPPORTED_BYTES];
 
     private Surface mSurface;
     private Presentation mPresentation;
@@ -153,8 +153,8 @@ public class PiStormsDisplay implements Constants {
         mResetPin.setDirection(Gpio.DIRECTION_OUT_INITIALLY_HIGH);
 
         mFrameBitmap = Bitmap.createBitmap(PS_TFT_WIDTH, PS_TFT_HEIGHT, Bitmap.Config.RGB_565);
-        byte[] pixels = new byte[mFrameBitmap.getByteCount()];
-        mFrameBuffer = ByteBuffer.wrap(pixels);
+        mPixels = new byte[mFrameBitmap.getByteCount()];
+        mFrameBuffer = ByteBuffer.wrap(mPixels);
         resetDisplay();
         clear(Color.BLUE);
         display();
@@ -228,10 +228,12 @@ public class PiStormsDisplay implements Constants {
         // Set address bounds to entire display.
         command(ILI9341_CASET);     // Column addr set
         sendShort(STATE_DATA, 0);   // x start
-        sendShort(STATE_DATA, (PS_TFT_WIDTH - 1)); // x end
+        // Use PS_TFT_HEIGHT here, virtual display is rotated
+        sendShort(STATE_DATA, (PS_TFT_HEIGHT - 1)); // x end
         command(ILI9341_PASET);     // Row addr set
         sendShort(STATE_DATA, 0);   // y start
-        sendShort(STATE_DATA, (PS_TFT_HEIGHT - 1)); // y end
+        // Use PS_TFT_WIDTH here, virtual display is rotated
+        sendShort(STATE_DATA, (PS_TFT_WIDTH - 1)); // y end
         command(ILI9341_RAMWR);     // write to RAM
 
         // Set DC for data.
@@ -242,17 +244,28 @@ public class PiStormsDisplay implements Constants {
         mFrameBitmap.copyPixelsToBuffer(mFrameBuffer);
 
         // Write data out to spi interface (use 4k bounce buffer)
-        mFrameBuffer.position(0);
-        while (mFrameBuffer.remaining() > 0) {
-            int len = Math.min(SPI_MAX_SUPPORTED_BYTES, mFrameBuffer.remaining());
-            mFrameBuffer.get(mFrameBounceBuffer, 0, len);
-            // swap MSB and LSB bytes
-            for (int i = 0; i < len; i += 2) {
-                mFrameSwapBuffer[i] = mFrameBounceBuffer[i+1];
-                mFrameSwapBuffer[i+1] = mFrameBounceBuffer[i];
+        int readCount = mPixels.length;
+        int bounceCount = 0;
+
+        for (int x = PS_TFT_WIDTH - 1; x >= 0; x--) {
+            for (int y = 0; y < PS_TFT_HEIGHT; y++ ) {
+                int offset = (y * (PS_TFT_WIDTH * 2)) + (x * 2);
+                // Swap MSB/LSB
+                mFrameBounceBuffer[bounceCount++] = mPixels[offset + 1];
+                mFrameBounceBuffer[bounceCount++] = mPixels[offset];
+                readCount -= 2;
+                if (readCount == 0) break;
+                if ((bounceCount == SPI_MAX_SUPPORTED_BYTES)) {
+                    mSpiDevice.write(mFrameBounceBuffer, bounceCount);
+                    bounceCount = 0;
+                }
             }
-            mSpiDevice.write(mFrameSwapBuffer, len);
+            if (readCount == 0) break;
         }
+        if (bounceCount > 0) {
+            mSpiDevice.write(mFrameBounceBuffer, bounceCount);
+        }
+
     }
 
     private void sleep(int milliseconds) {

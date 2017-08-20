@@ -16,6 +16,6 @@
         android:text="Hello PiStorms World!" />
     <SurfaceView
         android:id="@+id/pistorms_surface_view"
-        android:layout_width="240px"
-        android:layout_height="320px" />
+        android:layout_width="320px"
+        android:layout_height="240px" />
 </RelativeLayout>

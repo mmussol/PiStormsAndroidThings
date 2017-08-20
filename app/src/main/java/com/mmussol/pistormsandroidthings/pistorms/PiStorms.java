@@ -93,6 +93,8 @@ public class PiStorms implements Constants {
     }
 
     public void addDisplay(Context context, Surface surface, Display display) {
+
+
         mActivityContext = context;
         mPresentation = new ScreenProgramSelect(mActivityContext, display);
         mPresentation.show();
