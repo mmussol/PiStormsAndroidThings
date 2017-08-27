@@ -45,6 +45,8 @@ public class PspController extends Sensor implements Constants {
          * Possibly because I2C is running too fast, 400Kbps? Not sure
          * how to change this with current version Android Things.
          * For now just ignore MSB bit (some buttons won't work).
+         *
+         * See https://issuetracker.google.com/issues/65046298
          */
 
         b.left = false; // TODO: (~(buffer[0] >> 7) & 0x01) == 0x01;

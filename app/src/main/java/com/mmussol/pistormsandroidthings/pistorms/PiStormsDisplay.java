@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -19,6 +20,7 @@ import com.google.android.things.pio.SpiDevice;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.Exchanger;
 
 /**
  * This is an AndroidThings port of the following (MANY THANKS TO author sdaubin)
@@ -164,27 +166,48 @@ public class PiStormsDisplay implements Constants {
             @Override
             public void run() {
                 int copyResult, x, y, lastX, lastY;
-                MotionEvent motionEvent;
                 SynchronousPixelCopy copyHelper = new SynchronousPixelCopy();
                 try {
-                    lastX = mI2cDevice.readRegWord(PS_TSX);
-                    lastY = mI2cDevice.readRegWord(PS_TSY);
+                    // Screen is rotated, use PS_TSY for x value
+                    // and PS_TSX for y value
+                    lastX = mI2cDevice.readRegWord(PS_TSY);
+                    lastY = mI2cDevice.readRegWord(PS_TSX);
 
                     while (true) {
-                        x = mI2cDevice.readRegWord(PS_TSX);
-                        y = mI2cDevice.readRegWord(PS_TSY);
+
+                        // TODO : MSB bit is wrong! Need to retest with lower i2c frequency
+                        // Currently can't change the i2c frequency, waiting for Android Things support
+                        // See  https://issuetracker.google.com/issues/65046298
+                        x = mI2cDevice.readRegWord(PS_TSY);
+                        y = mI2cDevice.readRegWord(PS_TSX);
 
                         synchronized (this) {
                             if (mPresentation != null) {
-                                if (x != lastX || y != lastY) {
-                                    // Generate touch event (DOWN followed by UP event)
-                                    motionEvent = MotionEvent.obtain(SystemClock.uptimeMillis(),
-                                            SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, x, y, 0);
-                                    mPresentation.dispatchTouchEvent(motionEvent);
+                                if ((x != 0) || (y != 0) && (x != lastX || y != lastY)) {
+                                    lastX = x;
+                                    lastY = y;
+                                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            MotionEvent motionEvent;
+                                            try {
+                                                // TODO : take average of 3 samples
+                                                int xx = PS_TFT_WIDTH - mI2cDevice.readRegWord(PS_TSY); // Invert value
+                                                int yy = mI2cDevice.readRegWord(PS_TSX);
+                                                // Generate touch event (DOWN followed by UP event)
+                                                motionEvent = MotionEvent.obtain(SystemClock.uptimeMillis(),
+                                                        SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, xx, yy, 0);
+                                                mPresentation.dispatchTouchEvent(motionEvent);
 
-                                    motionEvent = MotionEvent.obtain(SystemClock.uptimeMillis(),
-                                            SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, 0);
-                                    mPresentation.dispatchTouchEvent(motionEvent);
+                                                motionEvent = MotionEvent.obtain(SystemClock.uptimeMillis(),
+                                                        SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, xx, yy, 0);
+                                                mPresentation.dispatchTouchEvent(motionEvent);
+                                            }catch (Exception e) {
+
+                                            }
+
+                                        }
+                                    });
                                 }
                             }
                             if (mSurface != null) {
@@ -195,9 +218,6 @@ public class PiStormsDisplay implements Constants {
                             }
                         }
                         display();
-
-                        lastX = x;
-                        lastY = y;
                         Thread.sleep(DISPLAY_REFRESH_MS);
                     }
                 } catch (Exception e) {
