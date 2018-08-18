@@ -8,7 +8,7 @@ import android.view.Surface;
 import android.view.SurfaceView;
 
 import com.google.android.things.pio.I2cDevice;
-import com.google.android.things.pio.PeripheralManagerService;
+import com.google.android.things.pio.PeripheralManager;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -17,7 +17,7 @@ import java.util.List;
 public class PiStorms implements Constants {
 
     private static PiStorms mPiStorms;
-    PeripheralManagerService mManager;
+    PeripheralManager mManager;
     private Bank mBankA, mBankB;
     protected final PiStormsDisplay mPiStormsDisplay;
     private Context mActivityContext;
@@ -34,7 +34,7 @@ public class PiStorms implements Constants {
 
     // Private constructor for singleton
     private PiStorms() throws IOException {
-        mManager = new PeripheralManagerService();
+        mManager = PeripheralManager.getInstance();
 
         I2cDevice devA = mManager.openI2cDevice(PiStorms.I2C_DEVICE_NAME, PS_A_ADDRESS >> 1);
         mBankA = new Bank(mManager, PS_A_ADDRESS, devA);
@@ -375,7 +375,7 @@ public class PiStorms implements Constants {
         I2cDevice mI2cDevice;
         int mI2cAddr;
 
-        Bank(PeripheralManagerService manager, int i2cAddr, I2cDevice i2cDev) throws IOException {
+        Bank(PeripheralManager manager, int i2cAddr, I2cDevice i2cDev) throws IOException {
             mI2cAddr = i2cAddr;
             mI2cDevice = i2cDev;
 

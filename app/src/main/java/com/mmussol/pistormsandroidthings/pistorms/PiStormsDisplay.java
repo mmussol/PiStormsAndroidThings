@@ -14,7 +14,7 @@ import android.view.Surface;
 
 import com.google.android.things.pio.Gpio;
 import com.google.android.things.pio.I2cDevice;
-import com.google.android.things.pio.PeripheralManagerService;
+import com.google.android.things.pio.PeripheralManager;
 import com.google.android.things.pio.SpiDevice;
 
 import java.io.IOException;
@@ -122,7 +122,7 @@ public class PiStormsDisplay implements Constants {
     private Presentation mPresentation;
 
     // Private constructor for singleton
-    protected PiStormsDisplay(PeripheralManagerService manager, I2cDevice i2cDevice) throws IOException {
+    protected PiStormsDisplay(PeripheralManager manager, I2cDevice i2cDevice) throws IOException {
 
         mI2cDevice = i2cDevice;
 
@@ -180,6 +180,8 @@ public class PiStormsDisplay implements Constants {
                         // See  https://issuetracker.google.com/issues/65046298
                         x = mI2cDevice.readRegWord(PS_TSY);
                         y = mI2cDevice.readRegWord(PS_TSX);
+
+                        //Log.e(PS_TAG, String.format("x=0x%02x y=0x%02x", x, y));
 
                         synchronized (this) {
                             if (mPresentation != null) {
